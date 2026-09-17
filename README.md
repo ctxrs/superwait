@@ -1,12 +1,20 @@
-# Superwait
+<img src="docs/assets/superwait-banner.png" alt="20% of your tokens are spent on the wait tool call. superwait cuts that in half, so you save 10% of total spend." width="100%">
 
-Conditional waiting for coding agents. Wait for any, all, or a count of workers
-and other conditions, wake early on a blocker, and keep one deadline across
-interruptions.
+**superwait gives coding agents one place to wait for the outcome they need.** It works with Codex, Claude Code, and Cursor, runs locally, and makes no model calls while checking conditions.
 
-Superwait provides an MCP tool and CLI, with setup for Codex, Claude Code, and
-Cursor. The agent chooses the workflow; local code checks the conditions.
-There are no model calls inside the wait.
+[Install](#install) · [How it works](#how-it-works) · [Host setup](docs/hosts.md) · [Reference](docs/reference.md) · [About the numbers](docs/savings.md)
+
+## Why use superwait?
+
+A build is still running. A reviewer hasn't finished. A service isn't ready yet. Your agent checks, reads “still running,” and calls another wait.
+
+Each trip back to the model can process the conversation again just to decide to keep waiting. With several workers, it also has to track which results arrived, which ones matter, and how much time is left.
+
+superwait lets the agent describe that outcome once:
+
+> Wait for two of the three reviewers. Wake early if the test worker reports a blocker. Stop after 30 minutes.
+
+Local code checks the conditions. The agent gets the completed results and remaining work when there is something to act on. If a blocker interrupts the wait, it can resume with the original deadline intact.
 
 ## Install
 
@@ -14,119 +22,63 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```sh
 uv tool install superwait
-superwait setup codex --project /path/to/project
-# Other hosts:
-superwait setup claude --project /path/to/project
-superwait setup cursor --project /path/to/project
 ```
 
-Setup installs project-local MCP settings, lifecycle hooks, and agent
-instructions. It preserves unrelated settings and backs up changed files as
-`.superwait-backup`. Restart the host and accept its normal trust prompts.
-Install hooks before spawning workers, and keep the Python tool environment
-installed. See [host integration](https://github.com/ctxrs/superwait/blob/main/docs/hosts.md) for details.
+Run **one** setup command from your project:
 
-To install the current source instead, use
-`uv tool install 'git+https://github.com/ctxrs/superwait'`.
-
-Linux is tested. Codex has live integration coverage; Claude Code and Cursor
-have adapter tests and still need full live workflow qualification. Other
-operating systems and multi-hour host waits remain unqualified.
-
-## Express the wait
-
-Call the MCP tool `wait_for` with a `request`. For example, wait for two of three
-reviewers, or return early when an explicit blocker signal arrives:
-
-```json
-{
-  "request": {
-    "agents": ["reviewer-a-id", "reviewer-b-id", "reviewer-c-id"],
-    "mode": "quorum",
-    "quorum": 2,
-    "wake_on": [{"kind": "signal", "key": "review-42/blocker", "state": "blocked"}],
-    "timeout": "2h"
-  }
-}
+```sh
+superwait setup codex --project .
+# Or, for your host:
+superwait setup claude --project .
+superwait setup cursor --project .
 ```
 
-Use the native worker IDs from your host. The provider defaults to the host
-selected during setup. Codex task paths such as `/root/reviewer_a` also work
-when accompanied by the parent `session` supplied in its startup context.
-`list_agents` is available for discovery and troubleshooting.
+Restart your coding agent and review its normal MCP and hook trust prompts. Set up before spawning workers so their lifecycle events can be recorded.
 
-`mode` is `all` by default, or `any`, or `quorum` with a count. Add `targets` for
-other conditions; they count toward the same threshold as `agents`.
+Then ask your agent:
 
-| Condition | Matches when |
+> Use superwait to wait for both reviewers, but return early if either reports a blocker. Stop after 30 minutes.
+
+Setup adds the tool, lifecycle hooks, and instructions that teach your agent how to use them. It preserves unrelated project settings and backs up files it changes. There is no superwait account, API key, or hosted service to configure.
+
+## How it works
+
+1. **Describe the result.** Wait for any, all, or a chosen number of workers and conditions. Add a deadline and anything that should wake the agent early.
+2. **Let local code watch.** The wait engine checks conditions concurrently. Hooks record worker events; file, HTTP, and command checks run locally as requested.
+3. **Continue with useful results.** The response explains why the wait ended, includes completed reports, and lists what remains pending. A ready-to-use continuation preserves the deadline and remaining count.
+
+The same engine is available as an MCP tool and a CLI. For a long wait that exceeds your host's tool timeout, the agent can use its background terminal.
+
+### What can you wait for?
+
+| You need… | superwait watches… |
 | --- | --- |
-| `agent` | A lifecycle hook observes a requested worker state |
-| `signal` | A task-specific event is published |
-| `file` | A path exists, is missing, changes, or contains literal text |
-| `http` | A GET returns the requested status code |
-| `command` | An observational command returns the requested exit code |
+| Enough reviews to proceed | Any, all, or a quorum of subagents |
+| A checkpoint or blocker | An explicit signal from a worker or script |
+| An artifact to be ready | A file appearing, changing, disappearing, or containing text |
+| A service to come online | An HTTP response with the requested status |
+| A custom readiness check | A command returning the requested exit code |
 
-Checks run concurrently. Command probes take an argument array and run without
-a shell; use an observational check because it repeats. `interval` controls
-polling, with a default of one second. Use absolute paths when the MCP server's
-working directory may differ from yours.
+Early-wake conditions can be combined with any of these. A timeout returns the partial results; it does not cancel the workers.
 
-Publish an explicit checkpoint or blocker through the `signal` MCP tool or CLI:
+See the [request and result reference](docs/reference.md) for examples, continuation behavior, and CLI usage.
 
-```sh
-superwait signal review-42/blocker --state blocked --data '{"reason":"missing fixture"}'
-```
+## When does it help most?
 
-## Act on the result
+Use superwait when an agent keeps checking unchanged state, or when several workers and external conditions need to be coordinated together. A single native wait is often enough for one worker. superwait adds the compound conditions, early wakeups, and shared deadline.
 
-The result includes `status`, `reason`, completed reports in `ready`, remaining
-work in `pending`, and early wake conditions in `triggered`.
+It does not replace your host's built-in wait tools automatically. Your agent needs to use it, and the condition must be observable through a supported hook or check.
 
-Pass the returned `continue_wait` object back as the next request to continue.
-It preserves the deadline, remaining count, and file-change baselines, and
-advances past delivered event signals. Persistent conditions such as an existing
-blocker file must clear or be removed before continuing. After a quorum has
-already been reached, continuation waits for all remaining work.
+## About the numbers
 
-A stopped response does not prove an assignment succeeded. Read its report;
-another host hook may continue that worker. For a resumed worker, use an `agent`
-target with `after` set to its last returned `cursor`. Unknown workers stay
-pending. `details: true` adds raw observations for troubleshooting.
+Our corpus study found that wait-only model responses accounted for about **20% of input tokens**. Auditing repeated waits identified roughly half of that input as a consolidation opportunity—about **9–10% of total input**, before replacement overhead.
 
-## Long waits and the CLI
+Actual token and spend savings depend on your corpus, model pricing, caching, and host integration; input-token savings are not the same as measured bill savings. [See the study and how to evaluate your own workload](docs/savings.md).
 
-Setup configures a per-server MCP timeout of 24 hours plus 30 seconds for Codex
-and Claude Code. `setup --max-wait 3d` changes that ceiling. Each request still
-has its own timeout or timezone-qualified `deadline`. An absolute deadline
-survives continuation; a timed-out continuation remains expired.
+## Host support and details
 
-For long Cursor waits, or waits beyond the host's configured MCP timeout, run
-the same engine through the host's background terminal:
+Linux and Codex have live integration coverage. Claude Code and Cursor have adapter tests; full live workflows in those hosts, other operating systems, and multi-hour host waits still need qualification.
 
-```sh
-superwait wait --request wait.json --output result.json
-```
-
-`wait.json` contains the request itself, without the MCP `request` wrapper.
-The CLI prints one final JSON result and atomically saves the optional output.
-It exits 0 for matched/early wake, 124 for timeout, 130 for Ctrl-C, and 2 for an
-invalid request or target ambiguity. Native completion notifications or terminal
-collection retrieve the result; the CLI does not background itself.
-
-Cancellation stops the wait and any probes it launched. It never cancels the
-workers being observed. The machine and process must remain alive.
-
-## Local state
-
-Hooks and waiters share a local SQLite database, defaulting to
-`$XDG_STATE_HOME/superwait/events.sqlite3` or
-`~/.local/state/superwait/events.sqlite3`. Set `SUPERWAIT_DB` or `--db` to use
-another store. Stored observations include worker IDs, report excerpts, and
-available transcript paths. `superwait prune --days 30` removes old observations.
-
-The Codex task-name adapter reads only the metadata header of the exact worker
-transcript supplied by its hook. It does not scan conversation history.
-Network requests occur only for requested HTTP or command checks.
-
-See [contributing](https://github.com/ctxrs/superwait/blob/main/CONTRIBUTING.md)
-for local development. Licensed under [MIT](https://github.com/ctxrs/superwait/blob/main/LICENSE).
+- [Host setup, permissions, and compatibility](docs/hosts.md)
+- [API, CLI, long waits, and local data](docs/reference.md)
+- [Contributing](CONTRIBUTING.md) · [PyPI](https://pypi.org/project/superwait/) · [MIT license](LICENSE)
