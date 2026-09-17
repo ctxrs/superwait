@@ -10,8 +10,8 @@ claude`, or `superwait setup cursor` once. This installs into the selected host'
 user configuration and applies across projects for that OS user. It does not
 configure other users, remote machines, or cloud agent VMs.
 
-Host-wide setup is new on this draft branch. Use the preview install in the
-[README](../README.md#install); PyPI 0.2.0 still requires `--project`.
+Host-wide setup requires superwait 0.3.0 or newer. If you installed 0.2.0, run
+`uv tool upgrade superwait` before following the [README](../README.md#install).
 
 | Host | User MCP configuration | User lifecycle hooks | User skill |
 | --- | --- | --- | --- |

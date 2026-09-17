@@ -1,8 +1,8 @@
-<img src="docs/assets/superwait-banner.png" alt="20% of your tokens are spent on the wait tool call. superwait cuts that in half, so you save 10% of total spend." width="100%">
+<img src="https://raw.githubusercontent.com/ctxrs/superwait/main/docs/assets/superwait-banner.png" alt="20% of your tokens are spent on the wait tool call. superwait cuts that in half, so you save 10% of total spend." width="100%">
 
 **superwait gives coding agents one place to wait for the outcome they need.** It works with Codex, Claude Code, and Cursor, runs locally, and makes no model calls while checking conditions.
 
-[Install](#install) · [How it works](#how-it-works) · [Host setup](docs/hosts.md) · [Reference](docs/reference.md) · [About the numbers](docs/savings.md)
+[Install](#install) · [How it works](#how-it-works) · [Host setup](https://github.com/ctxrs/superwait/blob/main/docs/hosts.md) · [Reference](https://github.com/ctxrs/superwait/blob/main/docs/reference.md) · [About the numbers](https://github.com/ctxrs/superwait/blob/main/docs/savings.md)
 
 ## Why use superwait?
 
@@ -20,10 +20,8 @@ Local code checks the conditions. The agent gets the completed results and remai
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you don't have it. uv manages Python for you, so there is no separate Python installation step.
 
-Host-wide setup is new in this draft and isn't in PyPI 0.2.0 yet. To try it, install the preview:
-
 ```sh
-uv tool install --python 3.12 'https://github.com/ctxrs/superwait/archive/refs/heads/docs/readme-draft-20260917.tar.gz'
+uv tool install --python 3.12 superwait
 ```
 
 ### Set up your host once (recommended)
@@ -53,7 +51,7 @@ Use project-only setup instead:
 superwait setup codex --project .
 ```
 
-Use `claude` or `cursor` for those hosts. Choose one scope for each project to avoid duplicate hooks. See [setup locations and existing installations](docs/hosts.md#installation-scope) for details.
+Use `claude` or `cursor` for those hosts. Choose one scope for each project to avoid duplicate hooks. See [setup locations and existing installations](https://github.com/ctxrs/superwait/blob/main/docs/hosts.md#installation-scope) for details.
 
 ## How it works
 
@@ -75,7 +73,7 @@ The same engine is available as an MCP tool and a CLI. For a long wait that exce
 
 Early-wake conditions can be combined with any of these. A timeout returns the partial results; it does not cancel the workers.
 
-See the [request and result reference](docs/reference.md) for examples, continuation behavior, and CLI usage.
+See the [request and result reference](https://github.com/ctxrs/superwait/blob/main/docs/reference.md) for examples, continuation behavior, and CLI usage.
 
 ## When does it help most?
 
@@ -95,12 +93,12 @@ We recommend installing ctx alongside superwait. ctx gives your coding agents fa
 
 Our corpus study found that wait-only model responses accounted for about **20% of input tokens**. Auditing repeated waits identified roughly half of that input as a consolidation opportunity—about **9–10% of total input**, before replacement overhead.
 
-Actual token and spend savings depend on your corpus, model pricing, caching, and host integration; input-token savings are not the same as measured bill savings. [See the study and how to evaluate your own workload](docs/savings.md).
+Actual token and spend savings depend on your corpus, model pricing, caching, and host integration; input-token savings are not the same as measured bill savings. [See the study and how to evaluate your own workload](https://github.com/ctxrs/superwait/blob/main/docs/savings.md).
 
 ## Host support and details
 
 Linux and Codex have live integration coverage. Claude Code and Cursor have adapter tests; full live workflows in those hosts, other operating systems, and multi-hour host waits still need qualification.
 
-- [Host setup, permissions, and compatibility](docs/hosts.md)
-- [API, CLI, long waits, and local data](docs/reference.md)
-- [Contributing](CONTRIBUTING.md) · [PyPI](https://pypi.org/project/superwait/) · [MIT license](LICENSE)
+- [Host setup, permissions, and compatibility](https://github.com/ctxrs/superwait/blob/main/docs/hosts.md)
+- [API, CLI, long waits, and local data](https://github.com/ctxrs/superwait/blob/main/docs/reference.md)
+- [Contributing](https://github.com/ctxrs/superwait/blob/main/CONTRIBUTING.md) · [PyPI](https://pypi.org/project/superwait/) · [MIT license](https://github.com/ctxrs/superwait/blob/main/LICENSE)

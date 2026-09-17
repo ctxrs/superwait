@@ -110,8 +110,10 @@ def configure(provider, project=None, db=None, max_wait="24h"):
     put(hookpath, json.dumps(config, indent=2) + "\n")
     skilldir = base / ".agents" if provider == "codex" else directory
     skillpath = skilldir / "skills/superwait/SKILL.md"
-    put(skillpath, files("superwait").joinpath("SKILL.md").read_text()
-        + "\nCLI for this installation (includes the shared event database):\n\n```sh\n"
+    put(skillpath, files("superwait").joinpath("SKILL.md").read_text())
+    put(skillpath.parent / "references/api.md",
+        files("superwait").joinpath("references/api.md").read_text()
+        + "\n## CLI for this installation\n\nIncludes the shared event database:\n\n```sh\n"
         + shlex.join(prefix) + " wait --request wait.json\n```\n")
     return {"scope": "user" if user_scope else "project",
             "written": written, "database": str(db), "max_wait": max_wait,

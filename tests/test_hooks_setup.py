@@ -1,10 +1,15 @@
 import json
+from importlib.resources import files
 from pathlib import Path
+import re
+import shlex
+import sys
 import tomllib
 
 import pytest
 
 from superwait.hooks import record_hook
+from superwait.models import WaitRequest
 from superwait.setup import configure
 from superwait.store import Store
 
@@ -116,7 +121,8 @@ def test_host_setup_defaults_to_user_scope_and_preserves_settings(tmp_path, monk
     hooks_path.write_text(json.dumps({"hooks": {event: [{"command": "existing"}]}, "custom": "keep"}))
     result = configure(provider, db=tmp_path / "db")
     assert result["scope"] == "user"
-    assert set(result["written"]) == {str(user_root / p) for p in (mcp, hooks, skill)}
+    reference = Path(skill).parent / "references/api.md"
+    assert set(result["written"]) == {str(user_root / p) for p in (mcp, hooks, skill, reference)}
     assert not list(working.iterdir())
     assert not (user_root / ".mcp.json").exists()
     before = {p: Path(p).read_bytes() for p in result["written"]}
@@ -182,3 +188,43 @@ def test_invalid_user_mcp_preserves_existing_files(tmp_path, monkeypatch):
         configure("claude", db=tmp_path / "db")
     assert path.read_text() == '{"mcpServers": []}'
     assert not (tmp_path / ".claude").exists()
+
+
+@pytest.mark.parametrize("provider", ["codex", "claude", "cursor"])
+def test_setup_installs_linked_reference_and_scoped_cli(tmp_path, provider):
+    db = tmp_path / "shared database"
+    result = configure(provider, tmp_path / "project", db)
+    skill = next(Path(p) for p in result["written"] if Path(p).name == "SKILL.md")
+    text = skill.read_text()
+    assert text == files("superwait").joinpath("SKILL.md").read_text()
+    links = re.findall(r"\]\((references/[^)]+)\)", text)
+    assert links
+    for link in links:
+        reference = skill.parent / link
+        assert str(reference) in result["written"]
+        content = reference.read_text()
+        assert content.startswith(files("superwait").joinpath(link).read_text())
+        command = re.findall(r"```sh\n(.*?)\n```", content, re.S)[-1]
+        assert shlex.split(command) == [sys.executable, "-m", "superwait", "--db", str(db),
+                                        "--provider", provider, "wait", "--request", "wait.json"]
+
+
+@pytest.mark.parametrize("resource", ["SKILL.md", "references/api.md"])
+def test_documented_wait_requests_are_valid(resource):
+    content = files("superwait").joinpath(resource).read_text()
+    examples = re.findall(r"```json\n(.*?)\n```", content, re.S)
+    assert examples
+    for example in examples:
+        WaitRequest.model_validate(json.loads(example)["request"])
+
+
+def test_setup_preserves_previous_skill_when_adding_reference(tmp_path):
+    skill = tmp_path / ".agents/skills/superwait/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    previous = "# Previously installed skill\n"
+    skill.write_text(previous)
+    configure("codex", tmp_path, tmp_path / "db")
+    assert skill.with_name("SKILL.md.superwait-backup").read_text() == previous
+    assert (skill.parent / "references/api.md").exists()
+    configure("codex", tmp_path, tmp_path / "db")
+    assert skill.with_name("SKILL.md.superwait-backup").read_text() == previous

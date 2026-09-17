@@ -29,7 +29,7 @@ Waiting time itself does not consume model tokens. The opportunity is avoiding a
 
 The estimate is gross input-token opportunity, before the cost of instructions, monitor setup, result delivery, and changes to later context or cache use. Approximately 99.3% of the main projected input was cached. Cached input, fresh input, and output can have different prices, so a raw input percentage does not establish the same percentage reduction in spending.
 
-The current package also cannot consume a host's opaque execution-cell or terminal-session handles directly. About 91.6% of the main input projection involved that integration requirement. The retrospective therefore does not establish that installing superwait 0.2.0 delivers the full projected saving. Longer native waits can also eliminate some repeated checks.
+The current package also cannot consume a host's opaque execution-cell or terminal-session handles directly. About 91.6% of the main input projection involved that integration requirement. The retrospective therefore does not establish that installing superwait delivers the full projected saving. Longer native waits can also eliminate some repeated checks.
 
 The corpus deliberately oversampled parent tasks and covered Codex sessions from one workflow. It is not a representative benchmark for every developer, model, or supported host.
 
