@@ -13,7 +13,7 @@ There are no model calls inside the wait.
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-uv tool install 'git+https://github.com/ctxrs/superwait'
+uv tool install superwait
 superwait setup codex --project /path/to/project
 # Other hosts:
 superwait setup claude --project /path/to/project
@@ -24,7 +24,10 @@ Setup installs project-local MCP settings, lifecycle hooks, and agent
 instructions. It preserves unrelated settings and backs up changed files as
 `.superwait-backup`. Restart the host and accept its normal trust prompts.
 Install hooks before spawning workers, and keep the Python tool environment
-installed. See [host integration](docs/hosts.md) for details.
+installed. See [host integration](https://github.com/ctxrs/superwait/blob/main/docs/hosts.md) for details.
+
+To install the current source instead, use
+`uv tool install 'git+https://github.com/ctxrs/superwait'`.
 
 Linux is tested. Codex has live integration coverage; Claude Code and Cursor
 have adapter tests and still need full live workflow qualification. Other
@@ -125,4 +128,5 @@ The Codex task-name adapter reads only the metadata header of the exact worker
 transcript supplied by its hook. It does not scan conversation history.
 Network requests occur only for requested HTTP or command checks.
 
-See [contributing](CONTRIBUTING.md) for local development. Licensed under [MIT](LICENSE).
+See [contributing](https://github.com/ctxrs/superwait/blob/main/CONTRIBUTING.md)
+for local development. Licensed under [MIT](https://github.com/ctxrs/superwait/blob/main/LICENSE).
