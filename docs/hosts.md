@@ -1,13 +1,63 @@
 # Host integration
 
 All three hosts use the same `wait_for`, `list_agents`, and `signal` MCP API.
-The CLI runs the same wait engine. Setup writes only to the project you name.
+The CLI runs the same wait engine.
+
+## Installation scope
+
+**Host-wide setup is recommended:** run `superwait setup codex`, `superwait setup
+claude`, or `superwait setup cursor` once. This installs into the selected host's
+user configuration and applies across projects for that OS user. It does not
+configure other users, remote machines, or cloud agent VMs.
+
+Host-wide setup requires superwait 0.3.0 or newer. If you installed 0.2.0, run
+`uv tool upgrade superwait` before following the [README](../README.md#install).
+
+| Host | User MCP configuration | User lifecycle hooks | User skill |
+| --- | --- | --- | --- |
+| Codex | `~/.codex/config.toml` | `~/.codex/hooks.json` | `~/.agents/skills/superwait/SKILL.md` |
+| Claude Code | `~/.claude.json` | `~/.claude/settings.json` | `~/.claude/skills/superwait/SKILL.md` |
+| Cursor | `~/.cursor/mcp.json` | `~/.cursor/hooks.json` | `~/.cursor/skills/superwait/SKILL.md` |
+
+Codex honors `CODEX_HOME` for its config and hooks; its user skill stays in
+`~/.agents/skills`. Claude Code honors `CLAUDE_CONFIG_DIR`: when set, the MCP
+entry goes into `.claude.json` inside that directory, with settings and skills
+alongside it. Cursor uses its standard `~/.cursor` directory.
+
+### Project-only setup
+
+Add `--project /path/to/repo` to limit setup to one repository. This explicitly
+uses the repository paths below, even if a user configuration directory is set
+in your environment.
 
 | Host | MCP configuration | Lifecycle hook configuration | Skill |
 | --- | --- | --- | --- |
 | Codex | `.codex/config.toml` | `.codex/hooks.json` | `.agents/skills/superwait/SKILL.md` |
 | Claude Code | `.mcp.json` | `.claude/settings.json` | `.claude/skills/superwait/SKILL.md` |
 | Cursor | `.cursor/mcp.json` | `.cursor/hooks.json` | `.cursor/skills/superwait/SKILL.md` |
+
+Setup preserves unrelated settings, creates owner-only `.superwait-backup`
+copies of existing files before changing them, and can be run again without
+duplicating its hook entries in the same scope. It does not change host trust
+or approval settings.
+
+### Moving an existing project installation to host-wide setup
+
+Setup does not remove existing project installations. Hosts can load hooks from
+both scopes, which would record events twice. Remove only the old superwait MCP
+entry, its hook entries, and its installed skill from the project before using
+the host-wide installation there. Keep unrelated settings and hooks. For Codex,
+the managed MCP entry is between `# BEGIN superwait` and `# END superwait`.
+Then restart the host and review its normal trust prompts.
+
+Sources: [Codex config](https://learn.chatgpt.com/docs/config-file/config-reference),
+[Codex hooks](https://developers.openai.com/codex/hooks),
+[Codex skills](https://learn.chatgpt.com/docs/build-skills),
+[Claude Code MCP scopes](https://code.claude.com/docs/en/mcp#user-scope),
+[Claude Code settings](https://code.claude.com/docs/en/settings),
+[Cursor MCP](https://cursor.com/docs/context/mcp),
+[Cursor hooks](https://cursor.com/docs/hooks),
+[Cursor skills](https://cursor.com/docs/context/skills).
 
 ## Codex
 

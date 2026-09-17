@@ -1,4 +1,4 @@
-"""Project-local setup, preserving unrelated settings and saving originals."""
+"""Host-wide or project-local setup, preserving settings and saving originals."""
 
 import json
 import os
@@ -25,14 +25,20 @@ def write(path: Path, contents: str):
     path.write_text(contents)
 
 
-def configure(provider, project, db=None, max_wait="24h"):
-    project = project.expanduser().absolute()
+def configure(provider, project=None, db=None, max_wait="24h"):
+    user_scope = project is None
+    base = Path.home() if user_scope else project.expanduser().absolute()
     db = (db or default_db()).expanduser().absolute()
     prefix = [sys.executable, "-m", "superwait", "--db", str(db), "--provider", provider]
     hook_command = shlex.join([*prefix, "hook", provider])
     server = {"command": prefix[0], "args": [*prefix[1:], "serve"]}
     host_timeout = int(seconds(max_wait)) + 30
     hostdir = {"codex": ".codex", "claude": ".claude", "cursor": ".cursor"}[provider]
+    directory = base / hostdir
+    if user_scope:
+        variable = {"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR"}.get(provider)
+        if variable and os.environ.get(variable):
+            directory = Path(os.environ[variable]).expanduser().absolute()
     written = []
 
     def put(path, content):
@@ -45,13 +51,13 @@ def configure(provider, project, db=None, max_wait="24h"):
             raise ValueError(f"expected a JSON object in {path}")
         return value
 
-    hookpath = project / hostdir / ("settings.json" if provider == "claude" else "hooks.json")
+    hookpath = directory / ("settings.json" if provider == "claude" else "hooks.json")
     hook_config = read_json(hookpath)
     if not isinstance(hook_config.get("hooks", {}), dict):
         raise ValueError("existing hooks must be an object")
 
     if provider == "codex":
-        path = project / hostdir / "config.toml"
+        path = directory / "config.toml"
         text = path.read_text() if path.exists() else ""
         parsed = tomllib.loads(text)
         start, stop = "# BEGIN superwait", "# END superwait"
@@ -65,8 +71,14 @@ def configure(provider, project, db=None, max_wait="24h"):
                     f'args = {json.dumps(server["args"])}\ntool_timeout_sec = {host_timeout}\n{stop}\n')
         put(path, text.rstrip() + "\n\n" + fragment)
     else:
-        path = project / (".mcp.json" if provider == "claude" else ".cursor/mcp.json")
+        path = directory / "mcp.json"
+        if provider == "claude":
+            path = base / ".mcp.json"
+            if user_scope:
+                path = (directory if os.environ.get("CLAUDE_CONFIG_DIR") else base) / ".claude.json"
         config = read_json(path)
+        if not isinstance(config.get("mcpServers", {}), dict):
+            raise ValueError("existing mcpServers must be an object")
         if provider == "claude":
             server["timeout"] = host_timeout * 1000
         config.setdefault("mcpServers", {})["superwait"] = server
@@ -96,10 +108,13 @@ def configure(provider, project, db=None, max_wait="24h"):
                 entry["matcher"] = "SubagentHandback"
             entries.append(entry)
     put(hookpath, json.dumps(config, indent=2) + "\n")
-    skilldir = ".agents" if provider == "codex" else hostdir
-    skillpath = project / skilldir / "skills/superwait/SKILL.md"
-    put(skillpath, files("superwait").joinpath("SKILL.md").read_text()
-        + "\nCLI for this installation (includes the shared event database):\n\n```sh\n"
+    skilldir = base / ".agents" if provider == "codex" else directory
+    skillpath = skilldir / "skills/superwait/SKILL.md"
+    put(skillpath, files("superwait").joinpath("SKILL.md").read_text())
+    put(skillpath.parent / "references/api.md",
+        files("superwait").joinpath("references/api.md").read_text()
+        + "\n## CLI for this installation\n\nIncludes the shared event database:\n\n```sh\n"
         + shlex.join(prefix) + " wait --request wait.json\n```\n")
-    return {"written": written, "database": str(db), "max_wait": max_wait,
+    return {"scope": "user" if user_scope else "project",
+            "written": written, "database": str(db), "max_wait": max_wait,
             "next": "Restart the host and review its MCP/hooks trust prompts. Cursor: use the CLI for waits beyond its tool timeout."}
