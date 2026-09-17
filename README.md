@@ -18,19 +18,23 @@ Local code checks the conditions. The agent gets the completed results and remai
 
 ## Install
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you don't have it. uv manages Python for you, so there is no separate Python installation step.
+
+Host-wide setup is new in this draft and isn't in PyPI 0.2.0 yet. To try it, install the preview:
 
 ```sh
-uv tool install superwait
+uv tool install --python 3.12 'https://github.com/ctxrs/superwait/archive/refs/heads/docs/readme-draft-20260917.tar.gz'
 ```
 
-Run **one** setup command from your project:
+### Set up your host once (recommended)
+
+Run **one** command for your coding agent. It applies across your projects for your user account:
 
 ```sh
-superwait setup codex --project .
+superwait setup codex
 # Or, for your host:
-superwait setup claude --project .
-superwait setup cursor --project .
+superwait setup claude
+superwait setup cursor
 ```
 
 Restart your coding agent and review its normal MCP and hook trust prompts. Set up before spawning workers so their lifecycle events can be recorded.
@@ -39,7 +43,17 @@ Then ask your agent:
 
 > Use superwait to wait for both reviewers, but return early if either reports a blocker. Stop after 30 minutes.
 
-Setup adds the tool, lifecycle hooks, and instructions that teach your agent how to use them. It preserves unrelated project settings and backs up files it changes. There is no superwait account, API key, or hosted service to configure.
+Setup adds the tool, lifecycle hooks, and instructions to your host's user configuration. It preserves unrelated settings, backs up files it changes, and doesn't add files to your repositories. There is no superwait account, API key, or hosted service to configure.
+
+### Only need it in one repository?
+
+Use project-only setup instead:
+
+```sh
+superwait setup codex --project .
+```
+
+Use `claude` or `cursor` for those hosts. Choose one scope for each project to avoid duplicate hooks. See [setup locations and existing installations](docs/hosts.md#installation-scope) for details.
 
 ## How it works
 
