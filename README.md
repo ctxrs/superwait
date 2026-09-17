@@ -69,6 +69,14 @@ Use superwait when an agent keeps checking unchanged state, or when several work
 
 It does not replace your host's built-in wait tools automatically. Your agent needs to use it, and the condition must be observable through a supported hook or check.
 
+## Works with ctx
+
+superwait is made by **ctx engineering**, the team behind [ctx](https://github.com/ctxrs/ctx).
+
+We recommend installing ctx alongside superwait. ctx gives your coding agents fast, local search across their past sessions, so they can recover earlier decisions, reuse investigations, and find solutions they've already worked out. Results link back to the original messages and tool calls.
+
+[Install ctx and get started →](https://github.com/ctxrs/ctx#install-and-set-up-ctx)
+
 ## About the numbers
 
 Our corpus study found that wait-only model responses accounted for about **20% of input tokens**. Auditing repeated waits identified roughly half of that input as a consolidation opportunity—about **9–10% of total input**, before replacement overhead.
