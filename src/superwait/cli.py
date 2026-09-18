@@ -28,6 +28,9 @@ def parser():
     agents = commands.add_parser("agents", help="List recent hook-observed subagents.")
     agents.add_argument("provider", choices=["codex", "claude", "cursor"])
     agents.add_argument("--session")
+    doctor = commands.add_parser("doctor", help="Check whether lifecycle events are reaching this database.")
+    doctor.add_argument("provider", choices=["codex", "claude", "cursor"])
+    doctor.add_argument("--session", help="Check observations for one parent session.")
     hook = commands.add_parser("hook", help="Host lifecycle adapter; reads JSON on stdin.")
     hook.add_argument("provider", choices=["codex", "claude", "cursor"])
     commands.add_parser("serve", help="Serve the MCP API over stdio.")
@@ -74,6 +77,10 @@ def main():
                 result = {"seq": store.emit("signal", args.key, args.state, data=data)}
             elif args.command == "agents":
                 result = {"agents": store.agents(args.provider, args.session), "limit": 50}
+            elif args.command == "doctor":
+                from importlib.metadata import version
+                result = {"version": version("superwait"), **store.health(args.provider, args.session)}
+                code = 0 if result["status"] == "observed" else 1
             elif args.command == "hook":
                 from .hooks import record_hook
                 result = record_hook(args.provider, json.load(sys.stdin), store)

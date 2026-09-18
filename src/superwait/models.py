@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Model(BaseModel):
@@ -67,10 +67,15 @@ Target = Annotated[Agent | Signal | File | HTTP | Command, Field(discriminator="
 
 
 def seconds(value: str) -> float:
-    match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)?\s*", value)
-    if not match:
-        raise ValueError("duration must be a number with ms, s, m, h, or d (for example 2h)")
-    result = float(match[1]) * {None: 1, "ms": .001, "s": 1, "m": 60, "h": 3600, "d": 86400}[match[2]]
+    number = r"\d+(?:\.\d+)?"
+    if re.fullmatch(rf"\s*{number}\s*", value):
+        result = float(value)
+    else:
+        part = rf"({number})\s*(ms|s|m|h|d)"
+        if not re.fullmatch(rf"\s*(?:{part}\s*)+", value):
+            raise ValueError("duration must be seconds or use ms, s, m, h, d (for example 4m30s)")
+        result = sum(float(n) * {"ms": .001, "s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+                     for n, unit in re.findall(part, value))
     if not math.isfinite(result) or result <= 0:
         raise ValueError("duration must be finite and positive")
     return result
@@ -86,9 +91,19 @@ class WaitRequest(Model):
     mode: Literal["any", "all", "quorum"] = "all"
     quorum: int | None = Field(default=None, gt=0)
     wake_on: list[Target] = Field(default_factory=list)
-    interval: float = Field(default=1, ge=.05, allow_inf_nan=False)
+    interval: float | str = Field(default=1, description="Seconds between probes, as a number or duration such as 3s; minimum 0.05.")
     deadline: datetime | None = Field(default=None, description="Absolute deadline; survives a caller retry. Overrides timeout.")
     details: bool = Field(default=False, description="Include raw probe observations for troubleshooting.")
+
+    @field_validator("interval", mode="before")
+    @classmethod
+    def parse_interval(cls, value):
+        if not isinstance(value, (str, int, float)) or isinstance(value, bool):
+            raise ValueError("interval must be seconds or a duration string")
+        value = seconds(value) if isinstance(value, str) else float(value)
+        if not math.isfinite(value) or value < .05:
+            raise ValueError("interval must be finite and at least 0.05 seconds")
+        return value
 
     @property
     def conditions(self):

@@ -15,6 +15,9 @@ from .models import Agent, Command, File, HTTP, Signal, WaitRequest
 from .store import AmbiguousAgent, Store
 
 
+AGENT_OBSERVATION_GRACE = 5.0
+
+
 def file_stamp(path):
     try:
         stat = path.stat()
@@ -86,7 +89,13 @@ async def observe(target, store, client, baseline=None):
             else:
                 event = store.signal(target.key, target.state, target.after)
                 matched = bool(event)
-            return {"matched": bool(matched), "state": event["state"] if event else "unknown", "event": event}
+            result = {"matched": bool(matched), "state": event["state"] if event else "unknown", "event": event}
+            if not event and isinstance(target, Agent) and target.provider == "codex" and target.id.startswith("/"):
+                # Codex task paths are learned at Stop, not Start. A live
+                # worker in this parent can still supply the mapping.
+                result["awaiting_alias"] = any(a["state"] == "running"
+                    for a in store.agents("codex", target.session, None))
+            return result
         if isinstance(target, File):
             path = Path(target.path).expanduser().absolute()
             stamp = file_stamp(path)
@@ -143,8 +152,20 @@ async def wait_for(request: WaitRequest, store: Store, progress=None):
             while True:
                 checks += 1
                 results[i] = await observe(targets[i], store, client, baselines[i])
+                target, result = targets[i], results[i]
+                if isinstance(target, Agent) and result.get("state") == "unknown":
+                    result["hint"] = ("No lifecycle observation for this handle. Check superwait doctor "
+                                      + target.provider + "; review hook trust and use native waiting until recording works.")
+                    if time.monotonic() - started >= AGENT_OBSERVATION_GRACE:
+                        if not result.get("awaiting_alias"):
+                            result.update(state="unobserved", error=result["hint"])
                 changed.set()
-                await asyncio.sleep(request.interval)
+                delay = request.interval
+                if isinstance(target, Agent) and result.get("state") == "unknown":
+                    remaining = AGENT_OBSERVATION_GRACE - (time.monotonic() - started)
+                    if remaining > 0:
+                        delay = min(delay, max(.05, remaining))
+                await asyncio.sleep(delay)
 
         async def keepalive():
             while True:
@@ -172,7 +193,7 @@ async def wait_for(request: WaitRequest, store: Store, progress=None):
                             c["transcript_path"] = data["transcript_path"]
                 elif isinstance(t, (Agent, Signal)) and e["seq"] <= t.after:
                     c["state"] = "awaiting_new_event"
-            for key in ("error", "status_code", "exit_code", "stdout", "stderr"):
+            for key in ("error", "hint", "status_code", "exit_code", "stdout", "stderr"):
                 if key in r and r[key] != "":
                     c[key] = r[key]
             return c
@@ -237,6 +258,9 @@ async def wait_for(request: WaitRequest, store: Store, progress=None):
                                 return outcome("interrupted")
                             if sum(r["matched"] for r in results[:len(primary)]) >= needed:
                                 return outcome("matched")
+                            observable = sum(r.get("state") != "unobserved" for r in results[:len(primary)])
+                            if observable < needed or any(r.get("state") == "unobserved" for r in results[len(primary):]):
+                                return outcome("error", "An agent has no lifecycle observations. Check its handle and hook setup, or use native waiting.")
                     finally:
                         for worker in workers:
                             worker.cancel()

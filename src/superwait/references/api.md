@@ -41,9 +41,9 @@ return early independently of that threshold.
 | `mode` | `all` (default), `any`, or `quorum` |
 | `quorum` | Required positive count for `quorum` mode only; no greater than the number of agents and targets |
 | `wake_on` | Conditions that interrupt the wait; default `[]` |
-| `timeout` | String containing positive seconds or a duration such as `30s`, `10m`, `2h`, `1d`; default `10m`; `ms` also supported |
+| `timeout` | String containing positive seconds or a duration such as `30s`, `4m30s`, `2h`, `1d`; default `10m`; `ms` also supported |
 | `deadline` | Timezone-qualified timestamp overriding `timeout`; continuation preserves it |
-| `interval` | Seconds between probes; default `1`, minimum `0.05`; increase for remote checks |
+| `interval` | Seconds between probes, as a number or duration such as `3s`; default `1`, minimum `0.05`; increase for remote checks |
 | `details` | Include raw observations; default `false` |
 
 Unknown fields and duplicate main targets are rejected. Every condition accepts
@@ -100,11 +100,22 @@ scope. The Codex CLI fills the session from `CODEX_THREAD_ID` when available.
 Cursor stop hooks sometimes lack enough identity: use a unique outcome signal
 for indistinguishable concurrent assignments.
 
+An agent ID with no lifecycle observation gets five seconds for hook delivery,
+then becomes `unobserved`. If the required target count cannot be reached without
+it, or it is a wake condition, the wait returns `error` with no continuation.
+`any` and quorum waits continue when other targets can still satisfy them.
+Check the ID, hook trust, and shared database, or use native waiting. A shorter request can
+still time out first. This is not evidence that the worker failed or finished.
+Codex task paths can remain pending while a worker in the specified parent is
+running, because their aliases are learned at stop. Already observed workers
+can run for the full requested deadline.
+
 ### Other MCP tools
 
 `list_agents(provider, session?)` returns `agents` and `limit` (50) for recent
 hook-observed workers. Use it for discovery or troubleshooting, not before every
-wait. `provider` is required: `codex`, `claude`, or `cursor`.
+wait. `provider` is required: `codex`, `claude`, or `cursor`. The `health` field
+reports the shared database, observation count, and latest observation time.
 
 `signal(key, state="ready", data=null)` publishes an event and returns its `seq`
 cursor. The key and state must be nonempty strings; optional data is a JSON object.
@@ -145,8 +156,8 @@ continuation waits for all remaining work.
 
 A stopped worker response does not prove its assignment succeeded. Read its
 report; another host hook may continue that worker. For a resumed worker, use
-an `agent` target with `after` set to its last returned cursor. Unknown workers
-stay pending.
+an `agent` target with `after` set to its last returned cursor. Unobserved IDs
+return the setup diagnostic described above; they never count as completed.
 
 For a new response from a resumed worker:
 
@@ -166,11 +177,16 @@ Setup configures a per-server MCP timeout of 24 hours plus 30 seconds for Codex
 and Claude Code. Change the ceiling with `setup --max-wait 3d`. Each request
 still has its own `timeout` or timezone-qualified `deadline`. An absolute
 deadline survives continuation; a timed-out continuation remains expired.
+Choose the actual task deadline rather than repeatedly issuing short waits.
+Use `wake_on` for blockers that should interrupt it.
 
 In Codex code mode, start `functions.exec` with
 `// @exec: {"yield_time_ms":60000}`. If it yields, resume that cell with
 `functions.wait` and `yield_time_ms: 60000`. This avoids unnecessary model
 turns collecting an unfinished tool call.
+The wrapper still requires model interactions when it yields; superwait cannot
+remove the host's execution-cell limit. Prefer a direct MCP call when exposed.
+Native terminal/process handles still require the native collection tool.
 
 For long Cursor waits, or waits beyond a host's configured MCP timeout, run the
 same request through the host's background terminal:
@@ -197,6 +213,7 @@ Global options go before the command: `--db PATH` selects the shared store;
 | `wait` | `--request FILE` (default `-` reads stdin); `--timeout DURATION` overrides duration and clears a supplied deadline; `--output FILE` saves the result |
 | `signal KEY` | `--state STATE` (default `ready`); `--data JSON` (default `{}`) |
 | `agents PROVIDER` | Optional `--session SESSION`; lists up to 50 recent workers |
+| `doctor PROVIDER` | Optional `--session SESSION`; shows the database, package version, lifecycle-event count, and latest event time; exit 1 if none have been observed |
 | `setup PROVIDER` | Host-wide by default; `--project PATH` installs for one repository; `--max-wait DURATION` defaults to `24h` |
 | `serve` | Runs the MCP server over stdio |
 | `hook PROVIDER` | Lifecycle recorder used by setup; reads the host's JSON event from stdin |
@@ -205,6 +222,24 @@ Global options go before the command: `--db PATH` selects the shared store;
 Setup installs `SKILL.md` and this reference together, preserving unrelated
 host settings and saving originals of changed files as `.superwait-backup`.
 Restart the host and review its MCP/hooks trust prompts after setup.
+
+### Verify agent recording
+
+In Codex, open `/hooks` and review/trust the superwait hooks. Spawning a new
+worker must produce observations in the same database the MCP server reads:
+
+```sh
+superwait doctor codex
+superwait agents codex
+```
+
+`doctor` reports `no_observations` for an empty or wrong-scoped store. `observed`
+means events exist, not that the currently running host loaded the latest setup.
+Check `last_event_at` (Unix seconds) and a new worker's final report. Existing
+sessions may retain their old hooks until restarted or resumed with fresh config.
+File, HTTP, command and signal waits do not require agent hooks. Setup never
+approves hooks or bypasses host trust. If the MCP tool is absent, use the CLI
+command installed at the end of this reference, then reload the host.
 
 ## Local state
 

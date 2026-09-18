@@ -95,3 +95,17 @@ async def test_mcp_cancellation_reaps_its_command_probe(tmp_path):
                 except ProcessLookupError:
                     break
                 await asyncio.sleep(.02)
+
+
+async def test_mcp_duration_strings_and_missing_hook_diagnostic(tmp_path):
+    params = StdioServerParameters(command=sys.executable, args=["-m", "superwait", "--db", str(tmp_path / "db"), "serve"], env=dict(os.environ))
+    async with Client(params) as client:
+        health = (await client.call_tool("list_agents", {"provider": "codex"})).structured_content["health"]
+        assert health["status"] == "no_observations"
+        assert health["agent_events"] == 0
+        result = await asyncio.wait_for(client.call_tool("wait_for", {"request": {
+            "agents": ["missing"], "timeout": "1m30s", "interval": "10s"}}), 8)
+        assert not result.is_error
+        assert result.structured_content["status"] == "error"
+        assert result.structured_content["pending"][0]["state"] == "unobserved"
+        assert result.structured_content["continue_wait"] is None

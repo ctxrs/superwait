@@ -111,3 +111,16 @@ class Store:
     def prune(self, days=30):
         with self.connect() as db:
             return db.execute("DELETE FROM events WHERE at < ?", (time.time() - days * 86400,)).rowcount
+
+    def health(self, provider, session=None):
+        query = "SELECT COUNT(*) AS agent_events, MAX(at) AS last_event_at FROM events WHERE kind='agent' AND provider=?"
+        args = [provider]
+        if session is not None:
+            query += " AND session=?"
+            args.append(session)
+        with self.connect() as db:
+            result = dict(db.execute(query, args).fetchone())
+        return {"status": "observed" if result["agent_events"] else "no_observations",
+                "provider": provider, "session": session, "database": str(self.path), **result,
+                "next": "Verify a newly spawned worker appears and its final report arrives. "
+                        "If not, review hook trust (/hooks in Codex), reload the host, and check that hooks and MCP use this database."}

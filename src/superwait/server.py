@@ -16,7 +16,8 @@ def serve(store: Store, default_provider="codex"):
         "Codex task paths require session from the SessionStart context to avoid matching another conversation. "
         "Results give ready reports, pending work, triggered conditions, and a copyable continue_wait request. "
         "list_agents is for discovery or troubleshooting; a stopped response is not proof its task passed. "
-        "Unknown agents remain pending. signal reports checkpoints or blockers explicitly. "
+        "Unobserved required agents return an actionable error after a short hook-delivery grace period. "
+        "Use one realistic deadline, not repeated short waits. signal reports checkpoints or blockers explicitly. "
         "For a wait longer than the host's MCP timeout, use the superwait CLI in its background terminal. "
         "Cancelling a wait never stops the agents it observes."
     ))
@@ -29,7 +30,8 @@ def serve(store: Store, default_provider="codex"):
         A target is agent, signal, file, http, or command. Command probes execute
         repeatedly without a shell: use observational checks. File changed uses
         the state at call entry. timeout accepts 30s, 10m, 2h, 1d. An absolute
-        deadline overrides timeout and preserves the deadline on retries.
+        deadline overrides timeout and preserves the deadline on retries. Use a
+        realistic task deadline rather than repeating 30-60 second requests.
         Returns matched/interrupted/timed_out/error, ready reports, pending work,
         and triggered conditions. Pass continue_wait back as request to continue
         remaining work with the same deadline. details=true adds raw observations.
@@ -48,7 +50,7 @@ def serve(store: Store, default_provider="codex"):
         Specify session when known. Empty means no hooks have observed these
         agents, not that they finished. after=seq waits for a later observation.
         """
-        return {"agents": store.agents(provider, session), "limit": 50}
+        return {"agents": store.agents(provider, session), "limit": 50, "health": store.health(provider, session)}
 
     @server.tool()
     def signal(key: str, state: str = "ready", data: dict | None = None) -> dict[str, Any]:
