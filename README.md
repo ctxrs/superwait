@@ -36,6 +36,9 @@ superwait setup cursor
 ```
 
 Restart your coding agent and review its normal MCP and hook trust prompts. Set up before spawning workers so their lifecycle events can be recorded.
+For Codex, open `/hooks` and trust the three superwait hooks. After spawning a
+worker, `superwait doctor codex` checks whether its events are reaching superwait.
+See [installation checks](https://github.com/ctxrs/superwait/blob/main/docs/hosts.md#confirm-the-installation-is-active) if they aren't.
 
 Then ask your agent:
 

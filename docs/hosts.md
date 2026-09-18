@@ -76,6 +76,9 @@ no history. It is version-dependent; absent or unsupported metadata leaves
 UUID-based waiting and explicit signals available.
 
 A previously unknown task path remains pending until that mapping arrives.
+If no worker in that parent is running, an unobserved path instead returns a
+setup diagnostic after five seconds. Unobserved native IDs use the same grace
+period; already observed workers can run for the full deadline.
 Task paths require `session` even if only one old mapping exists: an unscoped
 name could otherwise match a previous conversation before the new worker stops.
 Setup installs a SessionStart hook that supplies this context to Codex; it
@@ -101,6 +104,24 @@ probes with the server process's access.
 Sources: [hooks](https://developers.openai.com/codex/hooks),
 [MCP settings](https://learn.chatgpt.com/docs/extend/mcp),
 [skill discovery](https://learn.chatgpt.com/docs/build-skills).
+
+### Confirm the installation is active
+
+Installing configuration does not approve its hooks. Open `/hooks`, review and
+trust the three superwait definitions, then start a fresh session. Already-open
+sessions may still use the previous configuration. Spawn a worker and check:
+
+```sh
+superwait doctor codex
+superwait agents codex
+```
+
+Check that the new worker appears and its final report arrives. `doctor` shows
+the package version, exact database, event count and latest event time; stored
+old events alone do not prove the current host is recording. If observations
+are missing, check hook trust, host reload, and matching database paths. Use
+native agent waiting until this is fixed; file and command waits still work.
+The CLI is also available when an existing session has not loaded the MCP tool.
 
 ## Claude Code
 

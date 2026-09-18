@@ -117,4 +117,6 @@ def configure(provider, project=None, db=None, max_wait="24h"):
         + shlex.join(prefix) + " wait --request wait.json\n```\n")
     return {"scope": "user" if user_scope else "project",
             "written": written, "database": str(db), "max_wait": max_wait,
-            "next": "Restart the host and review its MCP/hooks trust prompts. Cursor: use the CLI for waits beyond its tool timeout."}
+            "next": "Restart the host and review its MCP/hooks trust prompts (/hooks in Codex). "
+                    f"After spawning a worker, run superwait doctor {provider} to verify lifecycle observations. "
+                    "Cursor: use the CLI for waits beyond its tool timeout."}
