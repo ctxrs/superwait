@@ -101,8 +101,10 @@ Cursor stop hooks sometimes lack enough identity: use a unique outcome signal
 for indistinguishable concurrent assignments.
 
 An agent ID with no lifecycle observation gets five seconds for hook delivery,
-then returns `error` with state `unobserved` and no continuation. Check the ID,
-hook trust, and shared database, or use native waiting. A shorter request can
+then becomes `unobserved`. If the required target count cannot be reached without
+it, or it is a wake condition, the wait returns `error` with no continuation.
+`any` and quorum waits continue when other targets can still satisfy them.
+Check the ID, hook trust, and shared database, or use native waiting. A shorter request can
 still time out first. This is not evidence that the worker failed or finished.
 Codex task paths can remain pending while a worker in the specified parent is
 running, because their aliases are learned at stop. Already observed workers

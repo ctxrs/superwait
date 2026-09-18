@@ -79,6 +79,8 @@ A previously unknown task path remains pending until that mapping arrives.
 If no worker in that parent is running, an unobserved path instead returns a
 setup diagnostic after five seconds. Unobserved native IDs use the same grace
 period; already observed workers can run for the full deadline.
+An `any` or quorum wait can continue without an unobserved target when its other
+targets can still satisfy the required count.
 Task paths require `session` even if only one old mapping exists: an unscoped
 name could otherwise match a previous conversation before the new worker stops.
 Setup installs a SessionStart hook that supplies this context to Codex; it

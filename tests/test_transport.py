@@ -84,6 +84,17 @@ async def test_mcp_cancellation_reaps_its_command_probe(tmp_path):
         async with asyncio.timeout(3):
             while not pidfile.exists():
                 await asyncio.sleep(.02)
+        pid = int(pidfile.read_text())
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        async with asyncio.timeout(3):
+            while True:
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                await asyncio.sleep(.02)
 
 
 async def test_mcp_duration_strings_and_missing_hook_diagnostic(tmp_path):
@@ -98,14 +109,3 @@ async def test_mcp_duration_strings_and_missing_hook_diagnostic(tmp_path):
         assert result.structured_content["status"] == "error"
         assert result.structured_content["pending"][0]["state"] == "unobserved"
         assert result.structured_content["continue_wait"] is None
-        pid = int(pidfile.read_text())
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
-        async with asyncio.timeout(3):
-            while True:
-                try:
-                    os.kill(pid, 0)
-                except ProcessLookupError:
-                    break
-                await asyncio.sleep(.02)

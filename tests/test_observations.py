@@ -92,6 +92,23 @@ async def test_unknown_agent_does_not_override_ready_quorum_or_wake(tmp_path):
         assert (await wait_for(request, store))["status"] in ("matched", "interrupted")
 
 
+@pytest.mark.parametrize("mode,quorum", [("any", None), ("quorum", 2)])
+async def test_unobserved_optional_agent_does_not_abort_pending_threshold(tmp_path, monkeypatch, mode, quorum):
+    monkeypatch.setattr(engine, "AGENT_OBSERVATION_GRACE", .1)
+    store = Store(tmp_path / "db")
+    store.emit("signal", "first", "ready")
+    keys = ["later"] if mode == "any" else ["first", "later"]
+    waiting = asyncio.create_task(wait_for(WaitRequest(agents=["unknown"],
+        targets=[{"kind": "signal", "key": key} for key in keys], mode=mode, quorum=quorum,
+        timeout="2s", interval=.05), store))
+    await asyncio.sleep(.2)
+    assert not waiting.done()
+    store.emit("signal", "later", "ready")
+    result = await waiting
+    assert result["status"] == "matched"
+    assert result["pending"][0]["state"] == "unobserved"
+
+
 def test_doctor_distinguishes_missing_scoped_observations(tmp_path, monkeypatch, capsys):
     db = tmp_path / "db"
     store = Store(db)

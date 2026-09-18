@@ -16,7 +16,7 @@ def serve(store: Store, default_provider="codex"):
         "Codex task paths require session from the SessionStart context to avoid matching another conversation. "
         "Results give ready reports, pending work, triggered conditions, and a copyable continue_wait request. "
         "list_agents is for discovery or troubleshooting; a stopped response is not proof its task passed. "
-        "Unobserved agent IDs return an actionable error after a short hook-delivery grace period. "
+        "Unobserved required agents return an actionable error after a short hook-delivery grace period. "
         "Use one realistic deadline, not repeated short waits. signal reports checkpoints or blockers explicitly. "
         "For a wait longer than the host's MCP timeout, use the superwait CLI in its background terminal. "
         "Cancelling a wait never stops the agents it observes."

@@ -258,7 +258,8 @@ async def wait_for(request: WaitRequest, store: Store, progress=None):
                                 return outcome("interrupted")
                             if sum(r["matched"] for r in results[:len(primary)]) >= needed:
                                 return outcome("matched")
-                            if any(r.get("state") == "unobserved" for r in results):
+                            observable = sum(r.get("state") != "unobserved" for r in results[:len(primary)])
+                            if observable < needed or any(r.get("state") == "unobserved" for r in results[len(primary):]):
                                 return outcome("error", "An agent has no lifecycle observations. Check its handle and hook setup, or use native waiting.")
                     finally:
                         for worker in workers:
